@@ -15,6 +15,13 @@ const SESSION_INSTRUCTIONS = [
 export async function onRequestPost(context) {
   const { request, env } = context;
 
+  // Origin チェック: 同一オリジンからのリクエストのみ許可
+  // → 他サイトに組み込まれて API キーを消費される攻撃を防ぐ
+  const originCheck = verifyOrigin(request);
+  if (!originCheck.ok) {
+    return jsonResponse(403, { error: originCheck.error });
+  }
+
   const apiKey = env.OPENAI_API_KEY;
   if (!apiKey) {
     return jsonResponse(500, {
@@ -81,4 +88,31 @@ function jsonResponse(status, payload) {
       "Cache-Control": "no-store",
     },
   });
+}
+
+function verifyOrigin(request) {
+  const origin = request.headers.get("Origin");
+  const host = request.headers.get("Host");
+
+  if (!host) {
+    return { ok: false, error: "Host ヘッダがありません。" };
+  }
+
+  if (!origin) {
+    // Origin が無いケース: curl, Postman, 他サーバーからの直接呼び出しなど
+    return { ok: false, error: "このエンドポイントはブラウザからのみ呼び出せます。" };
+  }
+
+  let originHost;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    return { ok: false, error: "Origin が不正です。" };
+  }
+
+  if (originHost !== host) {
+    return { ok: false, error: "別ドメインからの呼び出しは許可されていません。" };
+  }
+
+  return { ok: true };
 }

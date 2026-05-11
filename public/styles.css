@@ -46,7 +46,7 @@ button { cursor: pointer; }
     max(14px, env(safe-area-inset-top)) 16px
     max(24px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto auto auto 1fr auto auto auto;
+  grid-template-rows: auto auto auto auto auto 1fr auto auto auto;
   gap: 14px;
 }
 
@@ -99,49 +99,80 @@ button { cursor: pointer; }
   letter-spacing: -0.01em;
 }
 
-.badge {
-  display: inline-flex;
+/* ステータスバナー（翻訳中シグナル） */
+.status-banner {
+  display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 22px;
+  border-radius: 16px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
   background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: .05em;
+  color: var(--muted);
+  transition: all .25s ease;
 }
 
-.badge::before {
-  content: "";
-  width: 7px;
-  height: 7px;
+.status-banner-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
   background: currentColor;
+  flex: 0 0 auto;
 }
 
-.badge.idle::before { background: var(--muted); }
-.badge.live {
-  color: var(--live);
-  border-color: rgba(74, 222, 128, .35);
-  background: rgba(74, 222, 128, .10);
-}
-.badge.live::before {
-  background: var(--live);
-  box-shadow: 0 0 12px var(--live);
-  animation: pulse 1.6s ease-in-out infinite;
-}
-.badge.error {
-  color: var(--error);
-  border-color: rgba(255, 107, 122, .35);
-  background: rgba(255, 107, 122, .10);
+.status-banner-text {
+  white-space: nowrap;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: .35; }
+.status-banner.idle {
+  color: var(--muted);
+}
+
+.status-banner.live {
+  color: #0a1f12;
+  border-color: var(--live);
+  background:
+    linear-gradient(90deg, var(--live) 0%, #6ee79c 100%);
+  box-shadow:
+    0 0 0 1px rgba(74, 222, 128, .2),
+    0 12px 40px rgba(74, 222, 128, .35);
+  font-size: 17px;
+}
+
+.status-banner.live .status-banner-dot {
+  background: #0a1f12;
+  box-shadow: 0 0 0 0 rgba(10, 31, 18, .6);
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+.status-banner.live .status-banner-text::after {
+  content: " LIVE";
+  margin-left: 4px;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.status-banner.error {
+  color: #fff;
+  border-color: var(--error);
+  background: var(--error);
+  box-shadow: 0 10px 30px rgba(255, 107, 122, .35);
+}
+
+.status-banner.error .status-banner-dot {
+  background: #fff;
+}
+
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(10, 31, 18, .55); transform: scale(1); }
+  70%  { box-shadow: 0 0 0 10px rgba(10, 31, 18, 0); transform: scale(1.15); }
+  100% { box-shadow: 0 0 0 0 rgba(10, 31, 18, 0); transform: scale(1); }
 }
 
 /* 言語スイッチャー（Apple Translate 風のピル） */
@@ -233,6 +264,23 @@ button { cursor: pointer; }
   color: var(--bg);
 }
 
+/* 言語注記 */
+.lang-note {
+  margin: -4px 4px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.lang-note-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 800;
+}
+
 /* ヒーロー字幕エリア */
 .caption-hero {
   display: grid;
@@ -304,7 +352,7 @@ button { cursor: pointer; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 14px;
+  padding: 8px 12px 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--panel);
@@ -312,43 +360,76 @@ button { cursor: pointer; }
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  user-select: none;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  transition: color .15s ease, border-color .15s ease;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+
+.toggle:hover {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--muted);
+  transition: color .15s ease;
+}
+
+.toggle-label {
+  letter-spacing: .02em;
+}
+
+/* iOS風スイッチ */
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.toggle-switch {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid var(--line-strong);
+  transition: background .2s ease, border-color .2s ease;
+  flex: 0 0 auto;
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .35);
+  transition: transform .2s cubic-bezier(.34, 1.56, .64, 1);
 }
 
 .toggle:has(input:checked) {
   color: var(--text);
-  border-color: var(--accent);
+  border-color: rgba(122, 167, 255, .4);
+  background: rgba(122, 167, 255, .08);
 }
 
-.toggle input {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--muted);
-  border-radius: 4px;
-  margin: 0;
-  cursor: pointer;
-  position: relative;
-  transition: all .15s ease;
+.toggle:has(input:checked) .toggle-icon {
+  color: var(--accent);
 }
 
-.toggle input:checked {
+.toggle:has(input:checked) .toggle-switch {
   background: var(--accent);
   border-color: var(--accent);
 }
 
-.toggle input:checked::after {
-  content: "✓";
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: 900;
-  color: var(--bg);
+.toggle:has(input:checked) .toggle-switch::after {
+  transform: translateX(16px);
 }
 
 .mic-btn {

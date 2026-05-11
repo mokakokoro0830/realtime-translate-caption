@@ -221,6 +221,62 @@ const LANG_INFO = {
       ["こんにちは。", "Bonjour."],
     ],
   },
+  Thai: {
+    native: "ภาษาไทย",
+    iso: "th",
+    examples: [
+      ["Hello, how are you?", "สวัสดีครับ คุณสบายดีไหม?"],
+      ["こんにちは。", "สวัสดีครับ"],
+    ],
+  },
+  Hindi: {
+    native: "हिन्दी",
+    iso: "hi",
+    examples: [
+      ["Hello, how are you?", "नमस्ते, आप कैसे हैं?"],
+      ["こんにちは。", "नमस्ते।"],
+    ],
+  },
+  Portuguese: {
+    native: "Português",
+    iso: "pt",
+    examples: [
+      ["Hello, how are you?", "Olá, como você está?"],
+      ["こんにちは。", "Olá."],
+    ],
+  },
+  Russian: {
+    native: "Русский",
+    iso: "ru",
+    examples: [
+      ["Hello, how are you?", "Здравствуйте, как дела?"],
+      ["こんにちは。", "Здравствуйте."],
+    ],
+  },
+  Arabic: {
+    native: "العربية",
+    iso: "ar",
+    examples: [
+      ["Hello, how are you?", "مرحباً، كيف حالك؟"],
+      ["こんにちは。", "مرحباً."],
+    ],
+  },
+  German: {
+    native: "Deutsch",
+    iso: "de",
+    examples: [
+      ["Hello, how are you?", "Hallo, wie geht es dir?"],
+      ["こんにちは。", "Hallo."],
+    ],
+  },
+  Italian: {
+    native: "Italiano",
+    iso: "it",
+    examples: [
+      ["Hello, how are you?", "Ciao, come stai?"],
+      ["こんにちは。", "Ciao."],
+    ],
+  },
 };
 
 function sendSessionUpdate(dc) {
@@ -401,8 +457,10 @@ function setBusy(isBusy, message) {
 
 function setBadge(text, mode) {
   const badge = $("connectionBadge");
-  badge.textContent = text;
-  badge.className = `badge ${mode}`;
+  badge.className = `status-banner ${mode}`;
+  const label = badge.querySelector(".status-banner-text");
+  if (label) label.textContent = text;
+  else badge.textContent = text;
 }
 
 function setStatus(message) {

@@ -66,6 +66,20 @@ const server = createServer(async (req, res) => {
 });
 
 async function createRealtimeSession(req, res) {
+  // Origin チェック: 同一オリジンからのリクエストのみ許可
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (!origin) {
+    return sendJson(res, 403, { error: "このエンドポイントはブラウザからのみ呼び出せます。" });
+  }
+  try {
+    if (new URL(origin).host !== host) {
+      return sendJson(res, 403, { error: "別ドメインからの呼び出しは許可されていません。" });
+    }
+  } catch {
+    return sendJson(res, 403, { error: "Origin が不正です。" });
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return sendJson(res, 500, {

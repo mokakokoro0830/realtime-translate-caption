@@ -16,8 +16,12 @@
           <h1 class="brand-name">リアルタイム翻訳機</h1>
         </div>
       </div>
-      <div id="connectionBadge" class="badge idle">停止中</div>
     </header>
+
+    <div id="connectionBadge" class="status-banner idle" role="status">
+      <span class="status-banner-dot" aria-hidden="true"></span>
+      <span class="status-banner-text">停止中</span>
+    </div>
 
     <section class="lang-switcher" aria-label="言語の選択">
       <select id="sourceLang" class="lang-select" aria-label="入力言語">
@@ -28,6 +32,13 @@
         <option value="Chinese">中国語</option>
         <option value="Spanish">スペイン語</option>
         <option value="French">フランス語</option>
+        <option value="German">ドイツ語</option>
+        <option value="Italian">イタリア語</option>
+        <option value="Portuguese">ポルトガル語</option>
+        <option value="Russian">ロシア語</option>
+        <option value="Thai">タイ語</option>
+        <option value="Hindi">ヒンディー語</option>
+        <option value="Arabic">アラビア語</option>
       </select>
       <button id="swapLang" class="swap" type="button" aria-label="入力と出力を入れ替える">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
@@ -41,6 +52,13 @@
         <option value="Chinese">中国語</option>
         <option value="Spanish">スペイン語</option>
         <option value="French">フランス語</option>
+        <option value="German">ドイツ語</option>
+        <option value="Italian">イタリア語</option>
+        <option value="Portuguese">ポルトガル語</option>
+        <option value="Russian">ロシア語</option>
+        <option value="Thai">タイ語</option>
+        <option value="Hindi">ヒンディー語</option>
+        <option value="Arabic">アラビア語</option>
       </select>
     </section>
 
@@ -52,15 +70,26 @@
       <button type="button" data-source="Chinese" data-target="Japanese">中 → 日</button>
     </div>
 
+    <p class="lang-note">
+      <span class="lang-note-icon" aria-hidden="true">ⓘ</span>
+      英語・日本語以外は聞き取り・翻訳の精度が落ちる場合があります。
+    </p>
+
     <section class="caption-hero" aria-live="polite">
       <div id="translation" class="translation placeholder-text">開始すると、ここに翻訳字幕が出ます。</div>
       <div id="transcript" class="transcript">— 元の音声 —</div>
     </section>
 
     <section class="dock">
-      <label class="toggle" title="翻訳音声も再生">
+      <label class="toggle" title="翻訳結果を音声でも読み上げます">
+        <span class="toggle-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23z"/>
+          </svg>
+        </span>
+        <span class="toggle-label">読み上げ</span>
         <input id="voiceOutput" type="checkbox">
-        <span>音声</span>
+        <span class="toggle-switch" aria-hidden="true"></span>
       </label>
 
       <button id="startBtn" class="mic-btn" type="button" aria-label="翻訳開始">
@@ -84,7 +113,7 @@
       <div id="history" class="history"></div>
     </details>
 
-    <p id="status" class="status">マイク利用には許可が必要です。スマホ実機ではHTTPSのURLで開いてください。</p>
+    <p id="status" class="status">マイクの音声は OpenAI のサーバーで処理されます。録音データは保存されません。</p>
   </main>
 
   <audio id="remoteAudio" autoplay playsinline></audio>
