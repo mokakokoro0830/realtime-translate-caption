@@ -46,7 +46,7 @@ button { cursor: pointer; }
     max(14px, env(safe-area-inset-top)) 16px
     max(24px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto auto auto auto auto 1fr auto auto auto;
+  grid-template-rows: auto auto auto auto 1fr auto auto auto;
   gap: 14px;
 }
 
@@ -226,43 +226,6 @@ button { cursor: pointer; }
 
 .swap:hover { background: var(--accent-soft); color: var(--text); }
 .swap:active { transform: rotate(180deg); }
-
-/* クイックペア（チップ） */
-.quick-pairs {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 2px 2px 4px;
-  scrollbar-width: none;
-}
-
-.quick-pairs::-webkit-scrollbar { display: none; }
-
-.quick-pairs button {
-  flex: 0 0 auto;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  transition: all .15s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.quick-pairs button:hover {
-  border-color: var(--line-strong);
-  color: var(--text);
-}
-
-.quick-pairs button.active {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--bg);
-}
 
 /* 言語注記 */
 .lang-note {
@@ -577,5 +540,4 @@ button.ghost:hover {
 /* タップターゲット最適化（スマホ） */
 @media (hover: none) {
   .swap:hover { background: var(--bg-2); color: var(--accent); }
-  .quick-pairs button:hover { color: var(--muted); }
 }

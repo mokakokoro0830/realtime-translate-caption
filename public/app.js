@@ -21,41 +21,12 @@ function setTranslationText(text, { placeholder = false } = {}) {
 $("startBtn").addEventListener("click", startTranslation);
 $("stopBtn").addEventListener("click", stopTranslation);
 $("sourceLang").addEventListener("change", () => {
-  updateQuickPairsActive();
   if (state.dc?.readyState === "open") sendSessionUpdate(state.dc);
 });
 $("targetLang").addEventListener("change", () => {
-  updateQuickPairsActive();
   if (state.dc?.readyState === "open") sendSessionUpdate(state.dc);
 });
 $("swapLang").addEventListener("click", swapLanguages);
-document.querySelectorAll("#quickPairs button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const source = btn.dataset.source;
-    const target = btn.dataset.target;
-    setLanguagePair(source, target);
-  });
-});
-
-function setLanguagePair(source, target) {
-  const sourceSel = $("sourceLang");
-  const targetSel = $("targetLang");
-  if (Array.from(sourceSel.options).some((o) => o.value === source)) sourceSel.value = source;
-  if (Array.from(targetSel.options).some((o) => o.value === target)) targetSel.value = target;
-  updateQuickPairsActive();
-  if (state.dc?.readyState === "open") sendSessionUpdate(state.dc);
-}
-
-function updateQuickPairsActive() {
-  const s = $("sourceLang").value;
-  const t = $("targetLang").value;
-  document.querySelectorAll("#quickPairs button").forEach((btn) => {
-    const active = btn.dataset.source === s && btn.dataset.target === t;
-    btn.classList.toggle("active", active);
-  });
-}
-
-updateQuickPairsActive();
 $("voiceOutput").addEventListener("change", () => {
   if (state.dc?.readyState === "open") sendSessionUpdate(state.dc);
   $("remoteAudio").muted = !$("voiceOutput").checked;
