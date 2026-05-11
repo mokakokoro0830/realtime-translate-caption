@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>リアルタイム翻訳機</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <div class="brand-text">
+          <span class="brand-eyebrow">Realtime Translate</span>
+          <h1 class="brand-name">リアルタイム翻訳機</h1>
+        </div>
+      </div>
+      <div id="connectionBadge" class="badge idle">停止中</div>
+    </header>
+
+    <section class="lang-switcher" aria-label="言語の選択">
+      <select id="sourceLang" class="lang-select" aria-label="入力言語">
+        <option value="auto" selected>自動検出</option>
+        <option value="Japanese">日本語</option>
+        <option value="English">英語</option>
+        <option value="Korean">韓国語</option>
+        <option value="Chinese">中国語</option>
+        <option value="Spanish">スペイン語</option>
+        <option value="French">フランス語</option>
+      </select>
+      <button id="swapLang" class="swap" type="button" aria-label="入力と出力を入れ替える">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path fill="currentColor" d="M7 4l-4 4 4 4V9h11V7H7V4zm10 16l4-4-4-4v3H6v2h11v3z"/>
+        </svg>
+      </button>
+      <select id="targetLang" class="lang-select" aria-label="出力言語">
+        <option value="Japanese" selected>日本語</option>
+        <option value="English">英語</option>
+        <option value="Korean">韓国語</option>
+        <option value="Chinese">中国語</option>
+        <option value="Spanish">スペイン語</option>
+        <option value="French">フランス語</option>
+      </select>
+    </section>
+
+    <div class="quick-pairs" id="quickPairs">
+      <button type="button" data-source="auto" data-target="Japanese">自動 → 日</button>
+      <button type="button" data-source="Japanese" data-target="English">日 → 英</button>
+      <button type="button" data-source="English" data-target="Japanese">英 → 日</button>
+      <button type="button" data-source="Korean" data-target="Japanese">韓 → 日</button>
+      <button type="button" data-source="Chinese" data-target="Japanese">中 → 日</button>
+    </div>
+
+    <section class="caption-hero" aria-live="polite">
+      <div id="translation" class="translation placeholder-text">開始すると、ここに翻訳字幕が出ます。</div>
+      <div id="transcript" class="transcript">— 元の音声 —</div>
+    </section>
+
+    <section class="dock">
+      <label class="toggle" title="翻訳音声も再生">
+        <input id="voiceOutput" type="checkbox">
+        <span>音声</span>
+      </label>
+
+      <button id="startBtn" class="mic-btn" type="button" aria-label="翻訳開始">
+        <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
+          <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+        </svg>
+      </button>
+
+      <button id="stopBtn" class="mic-btn stop" type="button" aria-label="停止" disabled>
+        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+          <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/>
+        </svg>
+      </button>
+    </section>
+
+    <details class="history-panel">
+      <summary>
+        <span>履歴</span>
+        <button id="clearBtn" class="ghost" type="button">消去</button>
+      </summary>
+      <div id="history" class="history"></div>
+    </details>
+
+    <p id="status" class="status">マイク利用には許可が必要です。スマホ実機ではHTTPSのURLで開いてください。</p>
+  </main>
+
+  <audio id="remoteAudio" autoplay playsinline></audio>
+  <script src="./app.js" type="module"></script>
+</body>
+</html>

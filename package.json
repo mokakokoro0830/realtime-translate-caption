@@ -1,0 +1,16 @@
+{
+  "name": "realtime-translate-caption",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "nodemon server.js",
+    "start:once": "/Users/show/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
