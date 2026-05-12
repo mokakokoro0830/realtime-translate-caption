@@ -9,6 +9,7 @@ const state = {
   currentTranslation: "",
   currentTranscript: "",
   awaitingNextUtterance: false,
+  historyAppendedForUtterance: false,
 };
 
 function setTranslationText(text, { placeholder = false } = {}) {
@@ -329,6 +330,7 @@ function handleRealtimeEvent(event) {
     if (state.awaitingNextUtterance) {
       state.currentTranslation = "";
       state.awaitingNextUtterance = false;
+      state.historyAppendedForUtterance = false;
     }
     state.currentTranslation += delta;
     setTranslationText(state.currentTranslation);
@@ -336,10 +338,16 @@ function handleRealtimeEvent(event) {
   }
 
   if (isTranslationDone(event)) {
+    // 1発話につき history.done と response.done など複数のdoneが来るため、1回だけ追加
+    if (state.historyAppendedForUtterance) {
+      state.awaitingNextUtterance = true;
+      return;
+    }
     const finalText = extractFinalText(event) || state.currentTranslation;
     if (finalText.trim()) {
       setTranslationText(finalText.trim());
       appendHistory(state.currentTranscript, finalText.trim());
+      state.historyAppendedForUtterance = true;
     }
     // 次の発話のデルタが来るまで、現在の字幕を残しておく（チラつき防止）
     state.awaitingNextUtterance = true;
@@ -423,110 +431,103 @@ function appendHistory(source, translation) {
   $("history").prepend(item);
 }
 
-const ISO_TO_BCP47 = {
-  ja: "ja-JP",
-  en: "en-US",
-  ko: "ko-KR",
-  zh: "zh-CN",
-  es: "es-ES",
-  fr: "fr-FR",
-  de: "de-DE",
-  it: "it-IT",
-  pt: "pt-BR",
-  ru: "ru-RU",
-  th: "th-TH",
-  hi: "hi-IN",
-  ar: "ar-SA",
-};
-
-const speechState = {
+// OpenAI TTS による履歴再読み上げ。HTMLAudioElement で再生・一時停止・再開を制御
+const ttsState = {
   currentBtn: null,
-  voicesLoaded: false,
+  audio: null,
+  cache: new Map(),  // text → blob URL
 };
 
-// 音声リストが非同期で読み込まれるブラウザ向けに事前準備
-if ("speechSynthesis" in window) {
-  const ensureVoices = () => {
-    if (speechSynthesis.getVoices().length > 0) speechState.voicesLoaded = true;
-  };
-  ensureVoices();
-  speechSynthesis.onvoiceschanged = ensureVoices;
-}
-
-function pickBestVoice(bcp47) {
-  const voices = speechSynthesis.getVoices();
-  if (voices.length === 0) return null;
-
-  const lang = bcp47.toLowerCase();
-  const langShort = lang.split("-")[0];
-
-  // 1. 完全一致 + プレミアム品質
-  const exactPremium = voices.find((v) =>
-    v.lang.toLowerCase() === lang &&
-    /(enhanced|premium|natural|neural|siri)/i.test(v.name)
-  );
-  if (exactPremium) return exactPremium;
-
-  // 2. 完全一致
-  const exact = voices.find((v) => v.lang.toLowerCase() === lang);
-  if (exact) return exact;
-
-  // 3. 言語コード前方一致 + プレミアム
-  const shortPremium = voices.find((v) =>
-    v.lang.toLowerCase().startsWith(langShort) &&
-    /(enhanced|premium|natural|neural|siri)/i.test(v.name)
-  );
-  if (shortPremium) return shortPremium;
-
-  // 4. 言語コード前方一致
-  return voices.find((v) => v.lang.toLowerCase().startsWith(langShort)) || null;
-}
-
-function speakText(text, isoLang, btn) {
-  if (!("speechSynthesis" in window)) {
-    setStatus("このブラウザは読み上げ機能に対応していません。");
+async function speakText(text, _isoLang, btn) {
+  // 同じボタンを再度押した場合は一時停止 ⇄ 再開のトグル
+  if (ttsState.currentBtn === btn && ttsState.audio) {
+    if (ttsState.audio.paused) {
+      ttsState.audio.play();
+      setBtnState(btn, "playing");
+    } else {
+      ttsState.audio.pause();
+      setBtnState(btn, "paused");
+    }
     return;
   }
 
-  // 同じボタンを連打 → 停止扱い
-  if (speechState.currentBtn === btn && speechSynthesis.speaking) {
-    speechSynthesis.cancel();
-    btn.classList.remove("playing");
-    speechState.currentBtn = null;
-    return;
-  }
+  // 別ボタン押下 → 前を停止
+  stopCurrentTTS();
 
-  // 別ボタン押下 → 前のを止めてから少し待って再開（重なり防止）
-  if (speechSynthesis.speaking || speechSynthesis.pending) {
-    speechSynthesis.cancel();
-    if (speechState.currentBtn) speechState.currentBtn.classList.remove("playing");
-  }
+  setBtnState(btn, "loading");
+  ttsState.currentBtn = btn;
 
-  const bcp47 = ISO_TO_BCP47[isoLang] || isoLang;
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = bcp47;
-  utter.rate = 1.0;
-  utter.pitch = 1.0;
+  try {
+    let audioUrl = ttsState.cache.get(text);
+    if (!audioUrl) {
+      const res = await fetch("/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `TTS失敗 (${res.status})`);
+      }
+      const blob = await res.blob();
+      audioUrl = URL.createObjectURL(blob);
+      ttsState.cache.set(text, audioUrl);
+    }
 
-  const voice = pickBestVoice(bcp47);
-  if (voice) utter.voice = voice;
-
-  if (btn) {
-    btn.classList.add("playing");
-    speechState.currentBtn = btn;
-    utter.onend = () => {
-      btn.classList.remove("playing");
-      if (speechState.currentBtn === btn) speechState.currentBtn = null;
+    const audio = new Audio(audioUrl);
+    audio.onended = () => {
+      if (ttsState.currentBtn === btn) {
+        setBtnState(btn, "idle");
+        ttsState.currentBtn = null;
+        ttsState.audio = null;
+      }
     };
-    utter.onerror = () => {
-      btn.classList.remove("playing");
-      if (speechState.currentBtn === btn) speechState.currentBtn = null;
+    audio.onerror = () => {
+      setBtnState(btn, "idle");
+      if (ttsState.currentBtn === btn) {
+        ttsState.currentBtn = null;
+        ttsState.audio = null;
+      }
     };
-  }
 
-  // ブラウザ依存の重なりを避けるため、少しだけ待ってから speak
-  setTimeout(() => speechSynthesis.speak(utter), 60);
+    ttsState.audio = audio;
+    await audio.play();
+    setBtnState(btn, "playing");
+  } catch (error) {
+    console.error(error);
+    setBtnState(btn, "idle");
+    setStatus(`読み上げに失敗: ${error.message}`);
+    ttsState.currentBtn = null;
+    ttsState.audio = null;
+  }
 }
+
+function stopCurrentTTS() {
+  if (ttsState.audio) {
+    ttsState.audio.pause();
+    ttsState.audio = null;
+  }
+  if (ttsState.currentBtn) {
+    setBtnState(ttsState.currentBtn, "idle");
+    ttsState.currentBtn = null;
+  }
+}
+
+function setBtnState(btn, mode) {
+  if (!btn) return;
+  btn.classList.remove("playing", "paused", "loading");
+  if (mode !== "idle") btn.classList.add(mode);
+  // アイコン差し替え
+  const icon = btn.querySelector("svg");
+  if (icon) icon.innerHTML = ICONS[mode] || ICONS.idle;
+}
+
+const ICONS = {
+  idle:    '<path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12z"/>',
+  loading: '<circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-dasharray="12 6" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.9s" repeatCount="indefinite"/></circle>',
+  playing: '<path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/>',
+  paused:  '<path fill="currentColor" d="M8 5v14l11-7z"/>',
+};
 
 function stopTranslation() {
   state.dc?.close();

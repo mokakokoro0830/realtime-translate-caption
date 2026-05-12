@@ -39,6 +39,10 @@ const server = createServer(async (req, res) => {
       return await createRealtimeSession(req, res);
     }
 
+    if (req.method === "POST" && url.pathname === "/tts") {
+      return await createTTS(req, res);
+    }
+
     if (req.method !== "GET") {
       return sendJson(res, 405, { error: "Method not allowed" });
     }
@@ -146,6 +150,49 @@ async function createRealtimeSession(req, res) {
     "Cache-Control": "no-store",
   });
   res.end(answer);
+}
+
+async function createTTS(req, res) {
+  // Origin チェック
+  const origin = req.headers.origin;
+  const host = req.headers.host;
+  if (!origin) return sendJson(res, 403, { error: "ブラウザからのみ呼び出せます。" });
+  try {
+    if (new URL(origin).host !== host) {
+      return sendJson(res, 403, { error: "別ドメイン拒否" });
+    }
+  } catch {
+    return sendJson(res, 403, { error: "Origin 不正" });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return sendJson(res, 500, { error: "OPENAI_API_KEY 未設定" });
+
+  let body;
+  try {
+    body = JSON.parse(await readTextBody(req));
+  } catch {
+    return sendJson(res, 400, { error: "JSON必須" });
+  }
+  const text = (body?.text || "").trim();
+  const voice = body?.voice || "shimmer";
+  if (!text) return sendJson(res, 400, { error: "text 必須" });
+  if (text.length > 1000) return sendJson(res, 400, { error: "text 長すぎ" });
+
+  const upstream = await fetch("https://api.openai.com/v1/audio/speech", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: "gpt-4o-mini-tts", input: text, voice, response_format: "mp3" }),
+  });
+
+  if (!upstream.ok) {
+    const detail = await upstream.text();
+    return sendJson(res, upstream.status, { error: "TTS失敗", detail: detail.slice(0, 500) });
+  }
+
+  res.writeHead(200, { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" });
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  res.end(buf);
 }
 
 function readTextBody(req) {
