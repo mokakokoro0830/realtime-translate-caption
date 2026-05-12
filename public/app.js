@@ -392,10 +392,52 @@ function extractFinalText(event) {
 }
 
 function appendHistory(source, translation) {
+  const targetLang = $("targetLang").value;
+  const targetIso = LANG_INFO[targetLang]?.iso || "en";
+
   const item = document.createElement("div");
   item.className = "history-item";
-  item.innerHTML = `${escapeHtml(translation)}${source ? `<small>${escapeHtml(source)}</small>` : ""}`;
+
+  const replay = document.createElement("button");
+  replay.type = "button";
+  replay.className = "history-replay";
+  replay.setAttribute("aria-label", "もう一度読み上げる");
+  replay.title = "もう一度読み上げる";
+  replay.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4.03v8.05A4.5 4.5 0 0 0 16.5 12z"/></svg>';
+  replay.addEventListener("click", () => speakText(translation, targetIso, replay));
+
+  const body = document.createElement("div");
+  body.className = "history-body";
+  const text = document.createElement("div");
+  text.className = "history-translation";
+  text.textContent = translation;
+  body.appendChild(text);
+  if (source) {
+    const small = document.createElement("small");
+    small.textContent = source;
+    body.appendChild(small);
+  }
+
+  item.appendChild(replay);
+  item.appendChild(body);
   $("history").prepend(item);
+}
+
+function speakText(text, lang, btn) {
+  if (!("speechSynthesis" in window)) {
+    setStatus("このブラウザは読み上げ機能に対応していません。");
+    return;
+  }
+  speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = lang;
+  utter.rate = 1.0;
+  if (btn) {
+    btn.classList.add("playing");
+    utter.onend = () => btn.classList.remove("playing");
+    utter.onerror = () => btn.classList.remove("playing");
+  }
+  speechSynthesis.speak(utter);
 }
 
 function stopTranslation() {
