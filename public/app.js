@@ -10,7 +10,8 @@ const state = {
   currentTranscript: "",
   awaitingNextUtterance: false,
   historyAppendedForUtterance: false,
-  pendingHistorySourceEl: null,  // 翻訳完了が transcription 完了より先に来た時の更新先
+  transcriptCompletedForUtterance: false,
+  pendingHistorySourceQueue: [],  // 翻訳完了が transcription 完了より先に来た履歴 source の更新待ち列（FIFO）
 };
 
 function setTranslationText(text, { placeholder = false } = {}) {
@@ -322,6 +323,7 @@ function handleRealtimeEvent(event) {
     if (state.awaitingNextUtterance) {
       state.currentTranscript = "";
     }
+    state.transcriptCompletedForUtterance = false;
     state.currentTranscript += event.delta;
     $("transcript").textContent = state.currentTranscript;
     return;
@@ -330,11 +332,12 @@ function handleRealtimeEvent(event) {
   if (event.type === "conversation.item.input_audio_transcription.completed") {
     const finalTranscript = event.transcript || state.currentTranscript;
     state.currentTranscript = finalTranscript;
+    state.transcriptCompletedForUtterance = true;
     $("transcript").textContent = finalTranscript || "—";
-    // 翻訳完了より transcription 完了が遅れて来た場合、履歴の source を埋め直す
-    if (state.pendingHistorySourceEl && finalTranscript) {
-      state.pendingHistorySourceEl.textContent = finalTranscript;
-      state.pendingHistorySourceEl = null;
+    // 翻訳完了より transcription 完了が遅れて来たケース：履歴 source を順番に埋め直す
+    if (finalTranscript && state.pendingHistorySourceQueue.length > 0) {
+      const el = state.pendingHistorySourceQueue.shift();
+      el.textContent = finalTranscript;
     }
     return;
   }
@@ -440,8 +443,10 @@ function appendHistory(source, translation) {
   small.textContent = source || "";
   body.appendChild(small);
 
-  // 翻訳完了が transcription 完了より先に来ているなら、後で埋め直すため参照を保持
-  state.pendingHistorySourceEl = small;
+  // 翻訳完了が transcription 完了より先に来た場合、後で埋め直すためキューに保持
+  if (!state.transcriptCompletedForUtterance) {
+    state.pendingHistorySourceQueue.push(small);
+  }
 
   item.appendChild(replay);
   item.appendChild(body);
@@ -556,7 +561,8 @@ function stopTranslation() {
   state.connected = false;
   state.currentTranslation = "";
   state.currentTranscript = "";
-  state.pendingHistorySourceEl = null;
+  state.transcriptCompletedForUtterance = false;
+  state.pendingHistorySourceQueue = [];
   setTranslationText("開始すると、ここに翻訳字幕が出ます。", { placeholder: true });
   $("transcript").textContent = "— 元の音声 —";
   setControls(false);
