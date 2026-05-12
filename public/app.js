@@ -10,6 +10,7 @@ const state = {
   currentTranscript: "",
   awaitingNextUtterance: false,
   historyAppendedForUtterance: false,
+  pendingHistorySourceEl: null,  // 翻訳完了が transcription 完了より先に来た時の更新先
 };
 
 function setTranslationText(text, { placeholder = false } = {}) {
@@ -327,8 +328,14 @@ function handleRealtimeEvent(event) {
   }
 
   if (event.type === "conversation.item.input_audio_transcription.completed") {
-    state.currentTranscript = event.transcript || state.currentTranscript;
-    $("transcript").textContent = state.currentTranscript || "—";
+    const finalTranscript = event.transcript || state.currentTranscript;
+    state.currentTranscript = finalTranscript;
+    $("transcript").textContent = finalTranscript || "—";
+    // 翻訳完了より transcription 完了が遅れて来た場合、履歴の source を埋め直す
+    if (state.pendingHistorySourceEl && finalTranscript) {
+      state.pendingHistorySourceEl.textContent = finalTranscript;
+      state.pendingHistorySourceEl = null;
+    }
     return;
   }
 
@@ -428,11 +435,13 @@ function appendHistory(source, translation) {
   text.className = "history-translation";
   text.textContent = translation;
   body.appendChild(text);
-  if (source) {
-    const small = document.createElement("small");
-    small.textContent = source;
-    body.appendChild(small);
-  }
+  // source は常に作る（中身は空でもいい）。後から transcription.completed で埋める可能性あり
+  const small = document.createElement("small");
+  small.textContent = source || "";
+  body.appendChild(small);
+
+  // 翻訳完了が transcription 完了より先に来ているなら、後で埋め直すため参照を保持
+  state.pendingHistorySourceEl = small;
 
   item.appendChild(replay);
   item.appendChild(body);
@@ -547,6 +556,7 @@ function stopTranslation() {
   state.connected = false;
   state.currentTranslation = "";
   state.currentTranscript = "";
+  state.pendingHistorySourceEl = null;
   setTranslationText("開始すると、ここに翻訳字幕が出ます。", { placeholder: true });
   $("transcript").textContent = "— 元の音声 —";
   setControls(false);
