@@ -62,6 +62,67 @@ body::before {
   z-index: 0;
 }
 
+/* セフィロト系統樹（中央背景・薄く） */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("./images/ff-sephirot-tree.webp");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: auto 90vh;
+  opacity: 0.08;
+  z-index: 0;
+  mix-blend-mode: screen;
+}
+
+/* サイド装飾（左：ATBゲージ／右：ライフストリーム） */
+.side-decor {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  height: 80vh;
+  max-height: 720px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: center;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity .6s ease;
+}
+
+.side-decor.left {
+  left: max(0px, calc(50% - 560px));
+  background-image: url("./images/ff-atb-gauge.webp");
+  filter: drop-shadow(0 0 24px rgba(127, 223, 255, .35));
+  animation: gauge-pulse 4s ease-in-out infinite;
+}
+
+.side-decor.right {
+  right: max(0px, calc(50% - 560px));
+  background-image: url("./images/ff-lifestream.webp");
+  filter: drop-shadow(0 0 24px rgba(74, 222, 128, .35));
+  animation: lifestream-float 8s ease-in-out infinite;
+}
+
+@keyframes gauge-pulse {
+  0%, 100% { opacity: 0.45; filter: drop-shadow(0 0 24px rgba(127, 223, 255, .35)); }
+  50%      { opacity: 0.7;  filter: drop-shadow(0 0 36px rgba(127, 223, 255, .65)); }
+}
+
+@keyframes lifestream-float {
+  0%, 100% { opacity: 0.45; transform: translateY(-50%) translateX(0); }
+  50%      { opacity: 0.65; transform: translateY(calc(-50% - 12px)) translateX(0); }
+}
+
+/* 画面幅が広いときだけ表示（720px以下のスマホでは隠す） */
+@media (min-width: 1100px) {
+  .side-decor { opacity: 1; }
+}
+
 button, select { font: inherit; }
 button { cursor: pointer; }
 
