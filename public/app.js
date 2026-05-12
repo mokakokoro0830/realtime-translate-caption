@@ -10,8 +10,7 @@ const state = {
   currentTranscript: "",
   awaitingNextUtterance: false,
   historyAppendedForUtterance: false,
-  transcriptCompletedForUtterance: false,
-  pendingHistorySourceQueue: [],  // 翻訳完了が transcription 完了より先に来た履歴 source の更新待ち列（FIFO）
+  commitTimer: null,  // 沈黙検出で履歴をコミットするためのタイマー
 };
 
 function setTranslationText(text, { placeholder = false } = {}) {
@@ -124,7 +123,8 @@ async function startTranslation() {
 }
 
 async function fetchSdpAnswer(sdp) {
-  const response = await fetch("/session", {
+  const targetLang = LANG_INFO[$("targetLang").value]?.iso || "ja";
+  const response = await fetch(`/session?lang=${encodeURIComponent(targetLang)}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/sdp",
@@ -254,127 +254,54 @@ const LANG_INFO = {
 };
 
 function sendSessionUpdate(dc) {
-  const source = $("sourceLang").value;
+  // gpt-realtime-translate モデルでは target language の動的変更のみサポート
   const target = $("targetLang").value;
-  const targetInfo = LANG_INFO[target] || { native: target, examples: [] };
-  const sourceInfo = source !== "auto" ? LANG_INFO[source] : null;
+  const targetIso = LANG_INFO[target]?.iso || "ja";
 
-  const sourceLine = source === "auto"
-    ? "The speaker may use any language. Detect it automatically."
-    : `The speaker is mainly using ${source} (${sourceInfo?.native ?? source}).`;
-
-  const voiceOn = $("voiceOutput").checked;
-  const voiceText = voiceOn
-    ? `Also speak the translation aloud in ${target} only. Never speak any other language.`
-    : "Do not speak. Output text only.";
-
-  const transcriptionConfig = { model: "gpt-4o-transcribe" };
-  if (sourceInfo?.iso) {
-    transcriptionConfig.language = sourceInfo.iso;
-  }
-
-  const examplesText = (targetInfo.examples || [])
-    .map(([src, tgt]) => `Input: "${src}" -> Output: "${tgt}"`)
-    .join("\n");
-
-  const sessionPayload = {
+  dc.send(JSON.stringify({
     type: "session.update",
     session: {
-      type: "realtime",
-      instructions: [
-        "You are a strict translation engine. No personality. No conversation. No commentary.",
-        sourceLine,
-        "",
-        `=== ABSOLUTE RULES (HIGHEST PRIORITY) ===`,
-        "NEVER apologize. NEVER say 'sorry', '죄송합니다', '申し訳ありません', 'lo siento', 'désolé', 'Entschuldigung', 'mi dispiace', 'desculpe', 'извините', 'ขอโทษ', 'क्षमा', 'آسف', or any equivalent in any language.",
-        "NEVER ask for clarification. NEVER say 'could you repeat', 'please say again', 'I didn't catch that', or anything similar.",
-        "NEVER say you cannot translate. NEVER say 'I cannot', 'I am unable', or anything implying inability.",
-        "NEVER comment on the audio quality, accent, or speed. NEVER mention transcription confidence.",
-        "If the input is unclear, short, or you are unsure: JUST translate whatever words you heard literally, even if it is a single word. A single word translation is fine.",
-        "If you heard 'ありがとう', output just the translation of 'ありがとう' (e.g., 'Thank you', '감사합니다', 'Gracias'). DO NOT add anything.",
-        "",
-        `=== OUTPUT LANGUAGE ===`,
-        `The output MUST be written entirely in ${target} (${targetInfo.native}).`,
-        `Do NOT include any other language in the output.`,
-        `Do NOT output a bilingual response. Do NOT include the source text alongside the translation.`,
-        `Do NOT output an English version when the target is not English.`,
-        `Even if the input is already in ${target}, output stays in ${target} (rephrase if needed, but never switch language).`,
-        "",
-        `=== FORMAT ===`,
-        "Output ONLY the translated sentence. No prefix. No label. No quotes. No explanation. No notes.",
-        "Do NOT output anything like 'Translation:', 'In English:', '日本語訳:', '翻訳：', or any meta text.",
-        "Output a single line in the target language. Nothing else.",
-        "",
-        examplesText ? `=== EXAMPLES (target = ${target} / ${targetInfo.native}) ===\n${examplesText}` : "",
-        "",
-        voiceText,
-      ].filter(Boolean).join("\n"),
       audio: {
-        input: { transcription: transcriptionConfig },
+        output: { language: targetIso },
       },
     },
-  };
-
-  dc.send(JSON.stringify(sessionPayload));
+  }));
 }
 
+const SILENCE_COMMIT_MS = 1500;  // この時間 delta が来なかったら履歴コミット
+
 function handleRealtimeEvent(event) {
-  if (event.type === "conversation.item.input_audio_transcription.delta" && event.delta) {
+  // 入力音声の聞き取り（source）
+  if (event.type === "session.input_transcript.delta" && event.delta) {
     if (state.awaitingNextUtterance) {
       state.currentTranscript = "";
+      state.awaitingNextUtterance = false;
     }
-    state.transcriptCompletedForUtterance = false;
     state.currentTranscript += event.delta;
     $("transcript").textContent = state.currentTranscript;
+    scheduleCommit();
     return;
   }
 
-  if (event.type === "conversation.item.input_audio_transcription.completed") {
-    const finalTranscript = event.transcript || state.currentTranscript;
-    state.currentTranscript = finalTranscript;
-    state.transcriptCompletedForUtterance = true;
-    $("transcript").textContent = finalTranscript || "—";
-    // 翻訳完了より transcription 完了が遅れて来たケース：履歴 source を順番に埋め直す
-    if (finalTranscript && state.pendingHistorySourceQueue.length > 0) {
-      const el = state.pendingHistorySourceQueue.shift();
-      el.textContent = finalTranscript;
-    }
-    return;
-  }
-
-  if (isTranslationDelta(event)) {
-    const delta = event.delta || event.text || event.transcript || "";
-    if (!delta) return;
+  // 翻訳結果（target）
+  if (event.type === "session.output_transcript.delta" && event.delta) {
     if (state.awaitingNextUtterance) {
       state.currentTranslation = "";
       state.awaitingNextUtterance = false;
       state.historyAppendedForUtterance = false;
     }
-    state.currentTranslation += delta;
+    state.currentTranslation += event.delta;
     setTranslationText(state.currentTranslation);
+    scheduleCommit();
     return;
   }
 
-  if (isTranslationDone(event)) {
-    // 1発話につき history.done と response.done など複数のdoneが来るため、1回だけ追加
-    if (state.historyAppendedForUtterance) {
-      state.awaitingNextUtterance = true;
-      return;
-    }
-    const finalText = extractFinalText(event) || state.currentTranslation;
-    if (finalText.trim()) {
-      setTranslationText(finalText.trim());
-      appendHistory(state.currentTranscript, finalText.trim());
-      state.historyAppendedForUtterance = true;
-    }
-    // 次の発話のデルタが来るまで、現在の字幕を残しておく（チラつき防止）
-    state.awaitingNextUtterance = true;
-    return;
-  }
-
-  if (event.type === "input_audio_buffer.speech_started") {
-    // 字幕は消さず、次のデルタで上書きされるまでそのまま残す
-    state.awaitingNextUtterance = true;
+  // 旧モデル互換イベント（来る場合に備えて残す）
+  if (event.type === "conversation.item.input_audio_transcription.delta" && event.delta) {
+    if (state.awaitingNextUtterance) state.currentTranscript = "";
+    state.currentTranscript += event.delta;
+    $("transcript").textContent = state.currentTranscript;
+    scheduleCommit();
     return;
   }
 
@@ -385,36 +312,29 @@ function handleRealtimeEvent(event) {
   }
 }
 
-function isTranslationDelta(event) {
-  return [
-    "response.output_text.delta",
-    "response.text.delta",
-    "response.audio_transcript.delta",
-    "response.output_audio_transcript.delta",
-  ].includes(event.type);
+// 沈黙検出で履歴にコミット（gpt-realtime-translate は明示的な完了イベントを送らない）
+function scheduleCommit() {
+  if (state.commitTimer) clearTimeout(state.commitTimer);
+  state.commitTimer = setTimeout(() => {
+    commitUtterance();
+  }, SILENCE_COMMIT_MS);
 }
 
-function isTranslationDone(event) {
-  return [
-    "response.output_text.done",
-    "response.text.done",
-    "response.audio_transcript.done",
-    "response.output_audio_transcript.done",
-    "response.done",
-  ].includes(event.type);
-}
-
-function extractFinalText(event) {
-  if (event.text) return event.text;
-  if (event.transcript) return event.transcript;
-  const outputs = (event.response && event.response.output) || [];
-  for (const output of outputs) {
-    for (const part of output.content || []) {
-      if (part.text) return part.text;
-      if (part.transcript) return part.transcript;
-    }
+function commitUtterance() {
+  state.commitTimer = null;
+  if (state.historyAppendedForUtterance) {
+    state.awaitingNextUtterance = true;
+    return;
   }
-  return "";
+  const finalText = state.currentTranslation.trim();
+  if (!finalText) {
+    state.awaitingNextUtterance = true;
+    return;
+  }
+  setTranslationText(finalText);
+  appendHistory(state.currentTranscript, finalText);
+  state.historyAppendedForUtterance = true;
+  state.awaitingNextUtterance = true;
 }
 
 function appendHistory(source, translation) {
@@ -438,14 +358,10 @@ function appendHistory(source, translation) {
   text.className = "history-translation";
   text.textContent = translation;
   body.appendChild(text);
-  // source は常に作る（中身は空でもいい）。後から transcription.completed で埋める可能性あり
-  const small = document.createElement("small");
-  small.textContent = source || "";
-  body.appendChild(small);
-
-  // 翻訳完了が transcription 完了より先に来た場合、後で埋め直すためキューに保持
-  if (!state.transcriptCompletedForUtterance) {
-    state.pendingHistorySourceQueue.push(small);
+  if (source) {
+    const small = document.createElement("small");
+    small.textContent = source;
+    body.appendChild(small);
   }
 
   item.appendChild(replay);
@@ -561,8 +477,10 @@ function stopTranslation() {
   state.connected = false;
   state.currentTranslation = "";
   state.currentTranscript = "";
-  state.transcriptCompletedForUtterance = false;
-  state.pendingHistorySourceQueue = [];
+  if (state.commitTimer) {
+    clearTimeout(state.commitTimer);
+    state.commitTimer = null;
+  }
   setTranslationText("開始すると、ここに翻訳字幕が出ます。", { placeholder: true });
   $("transcript").textContent = "— 元の音声 —";
   setControls(false);
