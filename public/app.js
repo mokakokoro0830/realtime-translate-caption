@@ -270,13 +270,19 @@ function sendSessionUpdate(dc) {
 
 const SILENCE_COMMIT_MS = 1500;  // この時間 delta が来なかったら履歴コミット
 
+function startNewUtteranceIfNeeded() {
+  if (state.awaitingNextUtterance) {
+    state.currentTranscript = "";
+    state.currentTranslation = "";
+    state.awaitingNextUtterance = false;
+    state.historyAppendedForUtterance = false;
+  }
+}
+
 function handleRealtimeEvent(event) {
   // 入力音声の聞き取り（source）
   if (event.type === "session.input_transcript.delta" && event.delta) {
-    if (state.awaitingNextUtterance) {
-      state.currentTranscript = "";
-      state.awaitingNextUtterance = false;
-    }
+    startNewUtteranceIfNeeded();
     state.currentTranscript += event.delta;
     $("transcript").textContent = state.currentTranscript;
     scheduleCommit();
@@ -285,11 +291,7 @@ function handleRealtimeEvent(event) {
 
   // 翻訳結果（target）
   if (event.type === "session.output_transcript.delta" && event.delta) {
-    if (state.awaitingNextUtterance) {
-      state.currentTranslation = "";
-      state.awaitingNextUtterance = false;
-      state.historyAppendedForUtterance = false;
-    }
+    startNewUtteranceIfNeeded();
     state.currentTranslation += event.delta;
     setTranslationText(state.currentTranslation);
     scheduleCommit();
@@ -298,7 +300,7 @@ function handleRealtimeEvent(event) {
 
   // 旧モデル互換イベント（来る場合に備えて残す）
   if (event.type === "conversation.item.input_audio_transcription.delta" && event.delta) {
-    if (state.awaitingNextUtterance) state.currentTranscript = "";
+    startNewUtteranceIfNeeded();
     state.currentTranscript += event.delta;
     $("transcript").textContent = state.currentTranscript;
     scheduleCommit();
