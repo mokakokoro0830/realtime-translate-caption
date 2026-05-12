@@ -6,7 +6,7 @@ export function onRequestGet(context) {
   return new Response(
     JSON.stringify({
       ok: true,
-      model: env.OPENAI_REALTIME_MODEL || "gpt-realtime",
+      model: env.OPENAI_TRANSLATE_MODEL || "gpt-realtime-translate",
       apiKeyConfigured: Boolean(env.OPENAI_API_KEY),
     }),
     {
