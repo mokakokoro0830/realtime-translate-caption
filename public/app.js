@@ -423,21 +423,109 @@ function appendHistory(source, translation) {
   $("history").prepend(item);
 }
 
-function speakText(text, lang, btn) {
+const ISO_TO_BCP47 = {
+  ja: "ja-JP",
+  en: "en-US",
+  ko: "ko-KR",
+  zh: "zh-CN",
+  es: "es-ES",
+  fr: "fr-FR",
+  de: "de-DE",
+  it: "it-IT",
+  pt: "pt-BR",
+  ru: "ru-RU",
+  th: "th-TH",
+  hi: "hi-IN",
+  ar: "ar-SA",
+};
+
+const speechState = {
+  currentBtn: null,
+  voicesLoaded: false,
+};
+
+// 音声リストが非同期で読み込まれるブラウザ向けに事前準備
+if ("speechSynthesis" in window) {
+  const ensureVoices = () => {
+    if (speechSynthesis.getVoices().length > 0) speechState.voicesLoaded = true;
+  };
+  ensureVoices();
+  speechSynthesis.onvoiceschanged = ensureVoices;
+}
+
+function pickBestVoice(bcp47) {
+  const voices = speechSynthesis.getVoices();
+  if (voices.length === 0) return null;
+
+  const lang = bcp47.toLowerCase();
+  const langShort = lang.split("-")[0];
+
+  // 1. 完全一致 + プレミアム品質
+  const exactPremium = voices.find((v) =>
+    v.lang.toLowerCase() === lang &&
+    /(enhanced|premium|natural|neural|siri)/i.test(v.name)
+  );
+  if (exactPremium) return exactPremium;
+
+  // 2. 完全一致
+  const exact = voices.find((v) => v.lang.toLowerCase() === lang);
+  if (exact) return exact;
+
+  // 3. 言語コード前方一致 + プレミアム
+  const shortPremium = voices.find((v) =>
+    v.lang.toLowerCase().startsWith(langShort) &&
+    /(enhanced|premium|natural|neural|siri)/i.test(v.name)
+  );
+  if (shortPremium) return shortPremium;
+
+  // 4. 言語コード前方一致
+  return voices.find((v) => v.lang.toLowerCase().startsWith(langShort)) || null;
+}
+
+function speakText(text, isoLang, btn) {
   if (!("speechSynthesis" in window)) {
     setStatus("このブラウザは読み上げ機能に対応していません。");
     return;
   }
-  speechSynthesis.cancel();
+
+  // 同じボタンを連打 → 停止扱い
+  if (speechState.currentBtn === btn && speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    btn.classList.remove("playing");
+    speechState.currentBtn = null;
+    return;
+  }
+
+  // 別ボタン押下 → 前のを止めてから少し待って再開（重なり防止）
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+    if (speechState.currentBtn) speechState.currentBtn.classList.remove("playing");
+  }
+
+  const bcp47 = ISO_TO_BCP47[isoLang] || isoLang;
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = lang;
+  utter.lang = bcp47;
   utter.rate = 1.0;
+  utter.pitch = 1.0;
+
+  const voice = pickBestVoice(bcp47);
+  if (voice) utter.voice = voice;
+
   if (btn) {
     btn.classList.add("playing");
-    utter.onend = () => btn.classList.remove("playing");
-    utter.onerror = () => btn.classList.remove("playing");
+    speechState.currentBtn = btn;
+    utter.onend = () => {
+      btn.classList.remove("playing");
+      if (speechState.currentBtn === btn) speechState.currentBtn = null;
+    };
+    utter.onerror = () => {
+      btn.classList.remove("playing");
+      if (speechState.currentBtn === btn) speechState.currentBtn = null;
+    };
   }
-  speechSynthesis.speak(utter);
+
+  // ブラウザ依存の重なりを避けるため、少しだけ待ってから speak
+  setTimeout(() => speechSynthesis.speak(utter), 60);
 }
 
 function stopTranslation() {
