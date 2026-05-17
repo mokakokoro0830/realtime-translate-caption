@@ -1,5 +1,30 @@
 const $ = (id) => document.getElementById(id);
 
+// 起動時に /health を確認して一時停止状態を反映
+async function checkPausedState() {
+  try {
+    const res = await fetch("/health", { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data.paused) {
+      document.body.classList.add("paused");
+      const banner = document.getElementById("pauseBanner");
+      const msg = document.getElementById("pauseBannerMessage");
+      if (msg && data.pausedMessage) msg.textContent = data.pausedMessage;
+      if (banner) banner.hidden = false;
+      // Start ボタンは押せるが、押されたらメッセージを表示するように差し替え
+      const startBtn = document.getElementById("startBtn");
+      if (startBtn) {
+        startBtn.title = data.pausedMessage || "現在停止中です";
+        startBtn.setAttribute("aria-disabled", "true");
+      }
+    }
+  } catch (_e) {
+    // 失敗時は通常運用扱い
+  }
+}
+checkPausedState();
+
 const state = {
   pc: null,
   dc: null,
@@ -55,6 +80,12 @@ function swapLanguages() {
 
 async function startTranslation() {
   if (state.connected) return;
+  if (document.body.classList.contains("paused")) {
+    setBadge("停止中", "idle");
+    setStatus(document.getElementById("pauseBannerMessage")?.textContent
+      || "現在この翻訳機は一時停止中です。");
+    return;
+  }
   setBusy(true, "マイクを準備しています。");
   setBadge("接続中", "idle");
 

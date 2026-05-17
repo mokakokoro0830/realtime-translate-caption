@@ -1,8 +1,15 @@
 // Cloudflare Pages Functions: POST /tts
 // 履歴の再読み上げ用に OpenAI TTS を呼んで音声(mp3)を返す
 
+import { APP_PAUSED, PAUSED_MESSAGE } from "./_config.js";
+
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // 一時停止中
+  if (APP_PAUSED) {
+    return jsonResponse(503, { error: PAUSED_MESSAGE, paused: true });
+  }
 
   // Origin チェック: 同一オリジンのみ許可
   const originCheck = verifyOrigin(request);

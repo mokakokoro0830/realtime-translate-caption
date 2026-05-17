@@ -20,6 +20,11 @@ const PUBLIC_DIR = join(process.cwd(), "public");
 const TRANSLATE_MODEL = process.env.OPENAI_TRANSLATE_MODEL || "gpt-realtime-translate";
 const TRANSCRIPTION_MODEL = "gpt-realtime-whisper";
 
+// ===== 一時停止スイッチ（functions/_config.js と揃える）=====
+const APP_PAUSED = true;
+const PAUSED_MESSAGE = "現在この翻訳機は一時停止中です。再開までお待ちください。";
+// =============================================================
+
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -33,14 +38,21 @@ const server = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://${req.headers.host}`);
 
     if (req.method === "GET" && url.pathname === "/health") {
-      return sendJson(res, 200, { ok: true, model: TRANSLATE_MODEL });
+      return sendJson(res, 200, {
+        ok: true,
+        model: TRANSLATE_MODEL,
+        paused: APP_PAUSED,
+        pausedMessage: APP_PAUSED ? PAUSED_MESSAGE : null,
+      });
     }
 
     if (req.method === "POST" && url.pathname === "/session") {
+      if (APP_PAUSED) return sendJson(res, 503, { error: PAUSED_MESSAGE, paused: true });
       return await createRealtimeSession(req, res);
     }
 
     if (req.method === "POST" && url.pathname === "/tts") {
+      if (APP_PAUSED) return sendJson(res, 503, { error: PAUSED_MESSAGE, paused: true });
       return await createTTS(req, res);
     }
 

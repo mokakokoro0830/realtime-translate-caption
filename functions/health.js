@@ -1,5 +1,7 @@
 // Cloudflare Pages Functions: GET /health
-// 動作確認用。OPENAI_API_KEY が登録されているかも返す（鍵そのものは返さない）。
+// 動作確認用。一時停止状態も返す。
+
+import { APP_PAUSED, PAUSED_MESSAGE } from "./_config.js";
 
 export function onRequestGet(context) {
   const { env } = context;
@@ -8,6 +10,8 @@ export function onRequestGet(context) {
       ok: true,
       model: env.OPENAI_TRANSLATE_MODEL || "gpt-realtime-translate",
       apiKeyConfigured: Boolean(env.OPENAI_API_KEY),
+      paused: APP_PAUSED,
+      pausedMessage: APP_PAUSED ? PAUSED_MESSAGE : null,
     }),
     {
       status: 200,

@@ -127,6 +127,82 @@ button, select { font: inherit; }
 button { cursor: pointer; }
 
 /* ============================================
+   一時停止バナー
+   ============================================ */
+.pause-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, #ffb84a 0%, #ff8c42 100%);
+  border-bottom: 2px solid rgba(0, 0, 0, .25);
+  box-shadow: 0 6px 24px rgba(255, 140, 66, .35);
+  animation: pause-slide-down .4s ease-out;
+}
+
+.pause-banner-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: #2a1300;
+}
+
+.pause-banner-icon {
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, .35));
+}
+
+.pause-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pause-banner-text strong {
+  font-family: "Orbitron", sans-serif;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: .3em;
+}
+
+.pause-banner-text span {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, .25);
+}
+
+@keyframes pause-slide-down {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* paused 状態：mic ボタン無効化見た目 */
+body.paused .mic-btn:not(.stop) {
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .12), transparent 35%),
+    radial-gradient(circle at 50% 50%, #3a4670 0%, #1a2240 100%);
+  color: var(--ff-muted);
+  border-color: var(--ff-menu-border-inner);
+  box-shadow:
+    inset 0 -6px 10px rgba(0, 0, 0, .4),
+    0 4px 12px var(--ff-shadow);
+  cursor: not-allowed;
+  animation: none;
+}
+
+body.paused .app {
+  padding-top: max(80px, calc(env(safe-area-inset-top) + 78px));
+}
+
+/* ============================================
    レイアウト
    ============================================ */
 .app {

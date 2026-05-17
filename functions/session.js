@@ -4,11 +4,18 @@
 //   ② client_secret を使って SDP を /realtime/translations/calls に POST
 //   ③ SDP answer をブラウザに返す
 
+import { APP_PAUSED, PAUSED_MESSAGE } from "./_config.js";
+
 const TRANSLATE_MODEL = "gpt-realtime-translate";
 const TRANSCRIPTION_MODEL = "gpt-realtime-whisper";
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // 一時停止中
+  if (APP_PAUSED) {
+    return jsonResponse(503, { error: PAUSED_MESSAGE, paused: true });
+  }
 
   // Origin チェック
   const originCheck = verifyOrigin(request);
